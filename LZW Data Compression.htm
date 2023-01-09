@@ -1,0 +1,460 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML//EN">
+<!-- saved from url=(0056)http://www.cs.duke.edu/csed/curious/compression/lzw.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <title>LZW Data Compression</title>
+  </head>
+
+  <body bgcolor="white">
+<a name="top"></a>
+    <h1>LZW Data Compression</h1>
+    <hr>
+<blockquote>
+
+    <h2>Table of Contents</h2>
+<ul>
+<li><a href="http://www.cs.duke.edu/csed/curious/compression/lzw.html#overview">Overview</a></li>
+<li><a href="http://www.cs.duke.edu/csed/curious/compression/lzw.html#compression">LZW Compression</a></li>
+<li><a href="http://www.cs.duke.edu/csed/curious/compression/lzw.html#decompression">LZW Uncompression</a></li>
+<li><a href="http://www.cs.duke.edu/csed/curious/compression/lzw.html#tips">Programming Tips</a></li>
+<li><a href="http://www.cs.duke.edu/csed/curious/compression/links.html">References: Where to learn more</a></li>
+</ul>
+    <hr>
+<a name="overview"></a>
+<p align="right"><a href="http://www.cs.duke.edu/csed/curious/compression/lzw.html#top">top</a>
+    </p><h2>Overview</h2>
+    <p>If you were to take a look at almost any data file on a computer,
+character by character,
+you would notice that there are many recurring
+      patterns.  LZW is a data compression method that takes advantage
+      of this repetition.  The original version of the method was created by Lempel and
+      Ziv in 1978 (LZ78) and was further refined by Welch in 1984, hence the
+      LZW acronym.  Like any adaptive/dynamic compression method, the
+      idea is to (1) start with an initial model, (2) read data piece by piece,
+      (3) and update the model and encode the data as you go
+      along.  LZW is a "dictionary"-based
+compression algorithm.  This means that instead of tabulating character
+counts and building trees (as for Huffman encoding), LZW encodes data by
+referencing a dictionary.  Thus, to encode a substring, only a single
+code number, corresponding to that substring's index in the dictionary,
+needs to be written to the output file.  Although LZW is often explained
+	in the context of compressing text files, it can be used on any
+	type of file.  However, it generally performs best on files with
+	repeated substrings, such as text files.
+
+</p><hr>
+<a name="compression"></a>
+<p align="right"><a href="http://www.cs.duke.edu/csed/curious/compression/lzw.html#top">top</a>
+      </p><h2>Compression</h2>
+      <p>LZW starts out with a dictionary of 256
+      characters (in the case of 8 bits) and uses those as the
+      "standard" character set.  It then reads data 8 bits at a time
+      (e.g., 't', 'r', etc.) and encodes the data as the number that
+      represents its index in the dictionary.  Everytime it comes across
+      a new substring (say, "tr"), it adds it to the dictionary;
+everytime it comes across a substring it has already seen, it just reads
+in a new character and concatenates it with the current string to get a
+new substring.  The
+      next time LZW revisits a substring, it will be encoded
+      using a single number.  Usually a maximum number of entries (say, 4096) is
+      defined for the dictionary, so that the process doesn't run away
+      with memory.  Thus, the codes which are taking place of the
+      substrings in this example are 12 bits long (2^12 = 4096).  It is necessary for
+      the codes to be longer in bits than the characters (12 vs. 8 bits), but
+      since many frequently occuring substrings will be replaced by a
+      single code, in the long haul, compression is achieved.
+
+</p><p>Here's what it might look like in pseudocode:
+</p><blockquote>
+<font face="courier, new">
+<pre>string s;
+char ch;
+...
+
+s = empty string;
+while (there is still data to be read)
+{
+    ch = read a character;
+    if (dictionary contains s+ch)
+    {
+	s = s+ch;
+    }
+    else
+    {
+	encode s to output file;
+	add s+ch to dictionary;
+	s = ch;
+    }
+}
+encode s to output file;
+</pre>
+</font>
+</blockquote>
+
+<p>Now, let's suppose our input stream we wish to compress is
+"banana_bandana", and that we are only
+using the initial dictionary:
+
+</p><blockquote>
+<font face="" courier,="" new""="">
+<pre>Index   Entry
+  0       a
+  1       b
+  2       d
+  3       n
+  4       _ (space)
+</pre>
+</font>
+</blockquote>
+
+<p>The encoding steps would proceed like this:
+
+</p><p>
+<!--table goes here-->
+<table bgcolor="silver" cellpadding="5">
+<tbody><tr>	<th width="15%"><font size="4" face="courier, new">Input</font></th>
+	<th width="15%"><font size="4" face="courier, new">Current String</font></th>
+	<th width="15%"><font size="4" face="courier, new">Seen this Before?</font></th>
+	<th width="15%"><font size="4" face="courier, new">Encoded Output</font></th>
+	<th width="15%"><font size="4" face="courier, new">New Dictionary Entry/Index</font></th>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new"></font><font size="4" color="green" face="courier, new"><i>b</i></font></td>
+	<td><center><font size="4" face="courier, new"></font><font size="4" color="green" face="courier, new"><i>b</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>yes</center></font></td>
+	<td><font size="4" face="courier, new">nothing</font></td>
+	<td><font size="4" face="courier, new"><center>none</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">b</font><font size="4" color="green" face="courier, new"><i>a</i></font></td>
+	<td><center><font size="4" face="courier, new">b</font><font size="4" color="green" face="courier, new"><i>a</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new"></font><font size="4" color="green" face="courier, new"><i>1</i></font>	</td><td><font size="4" face="courier, new"><center>ba / 5</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">ba</font><font size="4" color="green" face="courier, new"><i>n</i></font></td>
+	<td><center><font size="4" face="courier, new">a</font><font size="4" color="green" face="courier, new"><i>n</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">1,</font><font size="4" color="green" face="courier, new"><i>0</i></font>	</td><td><font size="4" face="courier, new"><center>an / 6</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">ban</font><font size="4" color="green" face="courier, new"><i>a</i></font></td>
+	<td><center><font size="4" face="courier, new">n</font><font size="4" color="green" face="courier, new"><i>a</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">1,0,</font><font size="4" color="green" face="courier, new"><i>3</i></font>	</td><td><font size="4" face="courier, new"><center>na / 7</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">bana</font><font size="4" color="green" face="courier, new"><i>n</i></font></td>
+	<td><center><font size="4" face="courier, new">a</font><font size="4" color="green" face="courier, new"><i>n</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>yes</center></font></td>
+	<td><font size="4" face="courier, new">no change</font></td>
+	<td><font size="4" face="courier, new"><center>none</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">banan</font><font size="4" color="green" face="courier, new"><i>a</i></font></td>
+	<td><center><font size="4" face="courier, new">an</font><font size="4" color="green" face="courier, new"><i>a</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">1,0,3,</font><font size="4" color="green" face="courier, new"><i>6</i></font>	</td><td><font size="4" face="courier, new"><center>ana / 8</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">banana</font><font size="4" color="green" face="courier, new"><i>_</i></font></td>
+	<td><center><font size="4" face="courier, new">a</font><font size="4" color="green" face="courier, new"><i>_</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">1,0,3,6,</font><font size="4" color="green" face="courier, new"><i>0</i></font>	</td><td><font size="4" face="courier, new"><center>a_ / 9</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">banana_</font><font size="4" color="green" face="courier, new"><i>b</i></font></td>
+	<td><center><font size="4" face="courier, new">_</font><font size="4" color="green" face="courier, new"><i>b</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">1,0,3,6,0,</font><font size="4" color="green" face="courier, new"><i>4</i></font>	</td><td><font size="4" face="courier, new"><center>_b / 10</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">banana_b</font><font size="4" color="green" face="courier, new"><i>a</i></font></td>
+	<td><center><font size="4" face="courier, new">b</font><font size="4" color="green" face="courier, new"><i>a</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>yes</center></font></td>
+	<td><font size="4" face="courier, new">no change</font></td>
+	<td><font size="4" face="courier, new"><center>none</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">banana_ba</font><font size="4" color="green" face="courier, new"><i>n</i></font></td>
+	<td><center><font size="4" face="courier, new">ba</font><font size="4" color="green" face="courier, new"><i>n</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">1,0,3,6,0,4,</font><font size="4" color="green" face="courier, new"><i>5</i></font>	</td><td><font size="4" face="courier, new"><center>ban / 11</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">banana_ban</font><font size="4" color="green" face="courier, new"><i>d</i></font></td>
+	<td><center><font size="4" face="courier, new">n</font><font size="4" color="green" face="courier, new"><i>d</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">1,0,3,6,0,4,5,</font><font size="4" color="green" face="courier, new"><i>3</i></font>	</td><td><font size="4" face="courier, new"><center>nd / 12</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">banana_band</font><font size="4" color="green" face="courier, new"><i>a</i></font></td>
+	<td><center><font size="4" face="courier, new">d</font><font size="4" color="green" face="courier, new"><i>a</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">1,0,3,6,0,4,5,3,</font><font size="4" color="green" face="courier, new"><i>2</i></font>	</td><td><font size="4" face="courier, new"><center>da / 13</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">banana_banda</font><font size="4" color="green" face="courier, new"><i>n</i></font></td>
+	<td><center><font size="4" face="courier, new">a</font><font size="4" color="green" face="courier, new"><i>n</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>yes</center></font></td>
+	<td><font size="4" face="courier, new">no change</font></td>
+	<td><font size="4" face="courier, new"><center>none</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">banana_bandan</font><font size="4" color="green" face="courier, new"><i>a</i></font></td>
+	<td><center><font size="4" face="courier, new">an</font><font size="4" color="green" face="courier, new"><i>a</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>yes</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">1,0,3,6,0,4,5,3,2,</font><font size="4" color="green" face="courier, new"><i>8</i></font>	</td><td><font size="4" face="courier, new"><center>none</center></font></td>
+</tr>
+</tbody></table>
+
+</p><p>Notice that after the last character,"a", is read, the final
+substring, "ana",
+must be output.
+
+</p><hr>
+<a name="decompression"></a>
+<p align="right"><a href="http://www.cs.duke.edu/csed/curious/compression/lzw.html#top">top</a>
+</p><h2>Uncompression</h2>
+<p>The uncompression process for LZW is also straightforward.  In
+addition, it has an advantage over static
+compression methods because no dictionary or other overhead information
+is necessary for the decoding algorithm--a dictionary identical to the
+one created during compression is reconstructed during the process.
+<b>Both encoding and decoding programs must start with the same initial
+dictionary,</b> in this case, all 256 ASCII characters.
+</p><p>Here's how it works.  The
+LZW decoder first reads in an index (integer), looks up the index in the
+dictionary, and outputs the substring associated with the index.  The first character of this substring is concatenated
+to the current working string.  This new concatenation is added to the
+dictionary (resimulating how the substrings were added during
+compression).  The decoded string then becomes the current working
+string (the current index, ie. the substring, is remembered), and
+the process repeats.
+</p><p>Again, here's what it might look like:
+</p><blockquote>
+<font face="courier, new">
+<pre>string entry;
+char ch;
+int prevcode, currcode;
+...
+
+prevcode = read in a code;
+decode/output prevcode;
+while (there is still data to read)
+{
+    currcode = read in a code;
+    entry = translation of currcode from dictionary;
+    output entry;
+    ch = first char of entry;
+    add ((translation of prevcode)+ch) to dictionary;
+    prevcode = currcode;
+}
+</pre>
+</font>
+</blockquote>
+
+
+<!--This section needs some work -->
+
+<p><i>There is an exception where the algorithm fails</i>, and
+that is when the code calls for an index which has not yet been entered
+(eg. calling for an index 31 when index 31 is currently being
+processed and therefore not in the dictionary yet).  An example from
+<a href="http://www.cs.duke.edu/csed/curious/compression/lzw.html#references">Sayood</a>
+will help illustrate this
+point.  Suppose you had the string <i>abababab</i>..... and an initial
+dictionary of just <i>a</i> &amp; <i>b</i> with indexes 0 &amp; 1,
+respectively.  The encoding process begins:
+
+</p><p>
+<!--table goes here-->
+<table bgcolor="silver" cellpadding="5">
+<tbody><tr>	<th width="15%"><font size="4" face="courier, new">Input</font></th>
+	<th width="15%"><font size="4" face="courier, new">Current String</font></th>
+	<th width="15%"><font size="4" face="courier, new">Seen this Before?</font></th>
+	<th width="15%"><font size="4" face="courier, new">Encoded Output</font></th>
+	<th width="15%"><font size="4" face="courier, new">New Dictionary Entry/Index</font></th>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new"></font><font size="4" color="green" face="courier, new"><i>a</i></font></td>
+	<td><center><font size="4" face="courier, new"></font><font size="4" color="green" face="courier, new"><i>a</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>yes</center></font></td>
+	<td><font size="4" face="courier, new">nothing</font></td>
+	<td><font size="4" face="courier, new"><center>none</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">a</font><font size="4" color="green" face="courier, new"><i>b</i></font></td>
+	<td><center><font size="4" face="courier, new">a</font><font size="4" color="green" face="courier, new"><i>b</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new"></font><font size="4" color="green" face="courier, new"><i>0</i></font>	</td><td><font size="4" face="courier, new"><center>ab / 2</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">ab</font><font size="4" color="green" face="courier, new"><i>a</i></font></td>
+	<td><center><font size="4" face="courier, new">b</font><font size="4" color="green" face="courier, new"><i>a</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">0,</font><font size="4" color="green" face="courier, new"><i>1</i></font>	</td><td><font size="4" face="courier, new"><center>ba / 3</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">aba</font><font size="4" color="green" face="courier, new"><i>b</i></font></td>
+	<td><center><font size="4" face="courier, new">a</font><font size="4" color="green" face="courier, new"><i>b</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>yes</center></font></td>
+	<td><font size="4" face="courier, new">no change</font></td>
+	<td><font size="4" face="courier, new"><center>none</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">abab</font><font size="4" color="green" face="courier, new"><i>a</i></font></td>
+	<td><center><font size="4" face="courier, new">ab</font><font size="4" color="green" face="courier, new"><i>a</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">0,1,</font><font size="4" color="green" face="courier, new"><i>2</i></font>	</td><td><font size="4" face="courier, new"><center>aba / 4</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">ababa</font><font size="4" color="green" face="courier, new"><i>b</i></font></td>
+	<td><center><font size="4" face="courier, new">a</font><font size="4" color="green" face="courier, new"><i>b</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>yes</center></font></td>
+	<td><font size="4" face="courier, new">no change</font></td>
+	<td><font size="4" face="courier, new"><center>none</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">ababab</font><font size="4" color="green" face="courier, new"><i>a</i></font></td>
+	<td><center><font size="4" face="courier, new">ab</font><font size="4" color="green" face="courier, new"><i>a</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>yes</center></font></td>
+	<td><font size="4" face="courier, new">no change</font></td>
+	<td><font size="4" face="courier, new"><center>none</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">abababa</font><font size="4" color="green" face="courier, new"><i>b</i></font></td>
+	<td><center><font size="4" face="courier, new">aba</font><font size="4" color="green" face="courier, new"><i>b</i></font></center></td>
+	<td><font size="4" face="courier, new"><center>no</center></font></td>
+	<td><font color="blue" size="4" face="courier, new">0,1,2,</font><font size="4" color="green" face="courier, new"><i>4</i></font>	</td><td><font size="4" face="courier, new"><center>abab / 5</center></font></td>
+</tr>
+<tr>
+	<td><font color="red" size="4" face="courier, new">...</font></td>
+	<td><center><font size="4" face="courier, new">...</font></center></td>
+	<td><font size="4" face="courier, new"><center>...</center></font></td>
+	<td><font size="4" face="courier, new">...</font></td>
+	<td><font size="4" face="courier, new"><center>...</center></font></td>
+</tr>
+</tbody></table>
+</p><p>So, the encoded output starts out <i>0,1,2,4,...</i> .  When we start
+trying to decode, a problem arises (in the table below, keep in mind that the <i>Current String</i> is just the substring that was
+decoded/translated in the last pass of the loop.  Also, the <i>New
+Dictionary Entry</i> is created by concatenating the <i>Current
+String</i> with the first character of the new <i>Dictionary Translation</i>):
+
+</p><p>
+<!--table goes here-->
+<table bgcolor="silver" cellpadding="5">
+<tbody><tr>	<th width="15%"><font size="4" face="courier" new="">Encoded Input</font></th>
+	<th width="15%"><font size="4" face="courier" new="">Dictionary Translation</font></th>
+	<th width="15%"><font size="4" face="courier" new="">Decoded Output</font></th>
+	<th width="15%"><font size="4" face="courier" new="">Current String</font></th>
+	<th width="15%"><font size="4" face="courier" new="">New Dictionary Entry
+/ Index</font></th>
+</tr>
+<tr>
+	<td><font color="blue" size="4" face="courier" new=""></font><font size="4" color="green" face="courier" new=""><i>0</i></font></td>
+	<td><center><font size="4" face="courier" new="">0 = <font color="green"><i>a</i></font></font></center>
+	</td><td><font color="red" size="4" face="courier" new=""><font color="green"><i>a</i></font></font></td>
+	<td><font size="4" face="courier" new=""><center>none</center></font></td>
+	<td><font size="4" face="courier" new=""><center>none</center></font></td>
+</tr>
+<tr>
+	<td><font color="blue" size="4" face="courier" new="">0,</font><font size="4" color="green" face="courier" new=""><i>1</i></font></td>
+	<td><center><font size="4" face="courier" new="">1 = <font color="green"><i>b</i></font></font></center>
+	</td><td><font color="red" size="4" face="courier" new="">a<font color="green"><i>b</i></font></font></td>
+	<td><font size="4" face="courier" new=""><center>a</center></font></td>
+	<td><font size="4" face="courier" new=""><center>ab / 2</center></font></td>
+</tr>
+<tr>
+	<td><font color="blue" size="4" face="courier" new="">0,1,</font><font size="4" color="green" face="courier" new=""><i>2</i></font></td>
+	<td><center><font size="4" face="courier" new="">2 = <font color="green"><i>ab</i></font></font></center>
+	</td><td><font color="red" size="4" face="courier" new="">ab<font color="green"><i>ab</i></font></font></td>
+	<td><font size="4" face="courier" new=""><center>b</center></font></td>
+	<td><font size="4" face="courier" new=""><center>ba / 3</center></font></td>
+</tr>
+<tr>
+	<td><font color="blue" size="4" face="courier" new="">0,1,2,</font><font size="4" color="green" face="courier" new=""><i>4</i></font></td>
+	<td><center><font size="4" face="courier" new="">4 = <font color="green"><i>???</i></font></font></center>
+	</td><td><font color="red" size="4" face="courier" new="">abab<font color="green"><i>???</i></font></font></td>
+	<td><font size="4" face="courier" new=""><center>ab</center></font></td>
+	<td><font size="4" face="courier" new=""><center>???</center></font></td>
+</tr>
+</tbody></table>
+
+</p><p>As you can see, the decoder comes across an index of 4 while the
+entry that belongs there is currently being processed.  To understand
+why this happens, take a look at the encoding table.  Immediately after
+"aba" (with an index of 4) is entered into the dictionary, the next
+substring that is encoded is an "aba" (ie. the very next code written to
+the encoded output file is a 4).  Thus, the only case in which this
+special case can occur is if the substring begins and ends with the same character ("aba"
+is of the form &lt;char&gt;&lt;string&gt;&lt;char&gt;).  So, to deal
+with this exception, you simply take the substring you have so far,
+"ab", and concatenate its first character to itself, "ab"+"a" = "aba",
+instead of following the procedure as normal.  Therefore the pseudocode
+provided above must be altered a bit in order to handle all cases.
+
+</p><p><font size="4">Comprehension Practice:</font> Decode the encoded data
+for the first example and see if you can get back "banana_bandana".
+Remember that you must start with the same initial dictionary (ie. each
+character is in the same index slot as before).  To help yourself, make
+a decoding table like above.  <a name="check" href="http://www.cs.duke.edu/csed/curious/compression/answertable.html">Check your answer
+here</a>
+
+</p><hr>
+<a name="tips"></a>
+<p align="right"><a href="http://www.cs.duke.edu/csed/curious/compression/lzw.html#top">top</a>
+</p><h2>Programming Tips</h2>
+Here are some hints and tips that might help while programming LZW.
+
+<ul>
+
+<li><strong>Data Structure</strong>. Both encoding and decoding programs refer to the dictionary
+countless times during the algorithm.  A data structure with 0(1) search
+complexity would be extremely handy.  However, both programs don't
+necessarily need the same data structure.  The encoder looks up indexes in
+the dictionary by using strings (what structure might be good for
+this?), while the decoder looks up strings by using indexes (random
+access using indexes? what does this sound like?).</li><p>
+
+</p><li><strong>Pseudo-EOF</strong>. In Huffman coding, a pseudo-eof is
+output at the end of the output so that the decoder will know
+when the end of encoded output has been reached.  Although LZW generally does not
+require a pseudo-eof (normally, it reads data until it can read no
+more), it is a good idea to use one.  In particular, if you wish to
+expand your program to compress multiple files, you need a means to
+denote where one file's encoded data ends and another's begins.
+Probably the easiest way to do this is to reserve a spot in the
+dictionary (say, the last index) for the pseudo-eof (nothing actually
+gets stored there).  When you are finished encoding, just write the
+index of the pseudo-eof.  Needless to say, the decoding program must
+also reserve that index to signal the pseudo-eof</li><p>
+
+<!--
+<li><strong>A Growing Dictionary</strong>.  Once you get your code
+running and working, 
+-->
+
+</p><li><strong>Flush Character</strong>. This too is an optional feature.  Once again, you'll
+need to reserve another slot in the dictionary.
+When the uncompression program reads the index for the flush character,
+it will reset the dictionary to its intial state.  See, once the
+dictionary becomes full, it ceases to be dynamic, therefore ceasing to
+reflect local characteristics.  Using the flush character, however, you
+could monitor the compression ratio and flush the
+dictionary whenever the ratio falls below a certain threshold.  Toy around with this one, and you could have a pretty good
+compression program at your disposal.</li><p>
+
+
+</p></ul>
+</blockquote>
+    <hr>
+    <address><a href="mailto:sbb5@cs.duke.edu">Sooraj Bhat</a></address>
+<!-- Created: Wed Jun 28 11:29:34 EDT 2000 -->
+<!-- hhmts start -->
+Last modified: Tue Mar 19 16:25:35 EST 2002
+<!-- hhmts end -->
+
+  
+
+</body></html>
