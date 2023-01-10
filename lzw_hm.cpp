@@ -34,14 +34,14 @@ public:
         uint64_t hash = 0;
         for (char &c : Word)
         {
-            hash = (hash * 7 + uint64_t(c)) % size;
+            hash = (hash * 31 + uint64_t(c)) % size;
         }
         return hash;
     }
 
     void insert(std::string Word)
     {
-        if (float(length) / float(size) > 0.8)
+        if (float(length) / float(size) > 0.7)
         {
             rehash();
         }
