@@ -134,7 +134,7 @@ void compress(std::string ifilename, std::string ofilename)
     inputFile.close();
 
     // Output file for compressed data
-    std::ofstream outputFile(ofilename);
+    std::ofstream outputFile(ofilename, std::ios::binary);
 
     // Check if file is empty
     if (inputData.empty())
@@ -142,8 +142,6 @@ void compress(std::string ifilename, std::string ofilename)
         outputFile.close();
         return;
     }
-
-    std::string outputData = "";
 
     // Write the compressed data to the output file
     std::string P = inputData.substr(0, 1);
@@ -158,16 +156,14 @@ void compress(std::string ifilename, std::string ofilename)
         else
         {
             uint64_t index = dictionary.find(P);
-            outputData += std::to_string(index) + " ";
+            outputFile.write(reinterpret_cast<const char *>(&index), sizeof(uint64_t));
             dictionary.insert(P + C);
             P = C;
         }
     }
     // Write the last entry
     uint64_t index = dictionary.find(P);
-    outputData += std::to_string(index) + " ";
-
-    outputFile << outputData;
+    outputFile.write(reinterpret_cast<const char *>(&index), sizeof(uint64_t));
     outputFile.close();
 }
 
@@ -181,7 +177,7 @@ void decompress(std::string ifilename, std::string ofilename)
     }
 
     // Read input file into a string
-    std::ifstream inputFile(ifilename);
+    std::ifstream inputFile(ifilename, std::ios::binary);
 
     // Check if file exists
     if (!inputFile)
@@ -190,8 +186,27 @@ void decompress(std::string ifilename, std::string ofilename)
         return;
     }
 
-    std::string inputData((std::istreambuf_iterator<char>(inputFile)),
-                          std::istreambuf_iterator<char>());
+    // Number of bits to read
+    const uint64_t length = sizeof(uint64_t);
+
+    std::string inputData = "";
+    while (inputFile)
+    {
+        // Read the bits from the file into a char array
+        char buffer[length / 8];
+        inputFile.read(buffer, length / 8);
+
+        // Convert the char array to a 64-bit integer
+        uint64_t value = 0;
+        for (int i = 0; i < length / 8; i++)
+        {
+            value |= (static_cast<uint64_t>(buffer[i])) << (8 * i);
+        }
+
+        // Convert the integer to decimal and append the decimal value as string to final string
+        inputData += std::to_string(value);
+
+    }
     inputFile.close();
 
     // Output file for compressed data
